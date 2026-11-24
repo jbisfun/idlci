@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% from "macros.html" import ball, task %}
+{% block title %}Build History{% endblock %}
+{% block head %}{% if active %}<meta http-equiv="refresh" content="10">{% endif %}{% endblock %}
+{% block tasks %}
+{{ task("arrow-up-circle", "Back to Dashboard", "/") }}
+{{ task("clock-history", "All Builds", "/jobs") }}
+{{ task("hourglass-split", "Running", "/jobs?status=running") }}
+{{ task("x-octagon", "Failed Builds", "/jobs?status=failed") }}
+{% endblock %}
+{% block content %}
+<h1 class="h3"><i class="bi bi-clock-history"></i> Build History{% if project %} of {{ project }}{% endif %}</h1>
+<form class="row g-2 align-items-end mb-3" method="get">
+  <div class="col-auto"><label class="form-label small mb-0">Status</label>
+    <select class="form-select form-select-sm" name="status"><option value="">any</option>
+      {% for s in statuses %}<option {% if s == status %}selected{% endif %}>{{ s }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><label class="form-label small mb-0">Project</label>
+    <select class="form-select form-select-sm" name="project"><option value="">any</option>
+      {% for p in projects %}<option {% if p == project %}selected{% endif %}>{{ p }}</option>{% endfor %}</select></div>
+  <div class="col-auto"><button class="btn btn-sm btn-secondary"><i class="bi bi-funnel"></i> Filter</button></div>
+</form>
+<div class="table-responsive">
+<table class="table table-sm table-hover align-middle border">
+  <thead><tr><th>S</th><th>Build</th><th>Project</th><th>Command</th><th>Targets</th><th>Started by</th><th>Time</th><th>Duration</th><th>Revision</th><th></th></tr></thead>
+  <tbody>
+  {% for j in jobs %}
+    <tr>
+      <td>{{ ball(j.status, "fs-5") }}</td>
+      <td><a class="fw-semibold" href="/jobs/{{ j.id }}">#{{ j.id }}</a></td>
+      <td><a href="/projects/{{ j.project }}">{{ j.project }}</a></td>
+      <td>{{ j.command }}{% if j.configuration != "none" %} <span class="badge text-bg-secondary">{{ j.configuration }}</span>{% endif %}{% if j.strict %} <span class="badge text-bg-secondary">strict</span>{% endif %}</td>
+      <td class="small">{{ j.targets|join(" ") or "all" }}</td>
+      <td>{{ j.requested_by }}</td>
+      <td class="text-nowrap">{{ j.created|dt }}</td>
+      <td class="text-nowrap">{{ j.started|dur(j.finished) }}</td>
+      <td><code>{{ j.head or "" }}</code>{% if j.dirty %}<span class="text-warning" title="uncommitted changes">*</span>{% endif %}</td>
+      <td class="text-end">{% if j.status in ["queued", "running"] %}<a class="text-danger" href="#" data-post="/api/jobs/{{ j.id }}/cancel" title="Abort"><i class="bi bi-x-square-fill"></i></a>{% endif %}</td>
+    </tr>
+  {% else %}
+    <tr><td colspan="10" class="text-body-secondary">No builds.</td></tr>
+  {% endfor %}
+  </tbody>
+</table>
+</div>
+{% endblock %}

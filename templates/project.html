@@ -1,0 +1,89 @@
+{% extends "base.html" %}
+{% from "macros.html" import ball, weather, task, history %}
+{% block title %}{{ project.path }}{% endblock %}
+{% block tasks %}
+{{ task("arrow-up-circle", "Back to Dashboard", "/") }}
+{{ task("clipboard-data", "Status", "/projects/" ~ project.path) }}
+{{ task("play-circle", "Build Now", "#", 'data-queue="build" data-project="' ~ project.path|e ~ '" data-go') }}
+{{ task("check2-circle", "Run Tests", "#", 'data-queue="test" data-project="' ~ project.path|e ~ '" data-go') }}
+{{ task("sliders", "Build with Parameters", "#params") }}
+{{ task("clock-history", "Build History", "/jobs?project=" ~ project.path|urlencode) }}
+{{ task("gear", "Configure", "#", 'data-bs-toggle="modal" data-bs-target="#config"') }}
+{% endblock %}
+{% block sidepanels %}{{ history(builds) }}{% endblock %}
+{% block content %}
+<h1 class="h3 d-flex align-items-center gap-2">
+  {{ ball("running" if project.running else (project.last_build.status if project.last_build else none), "ball-lg") }}
+  Project {{ project.name }} {{ weather(project.health) }}
+</h1>
+<p class="text-body-secondary mb-3">
+  <code>{{ project.path }}</code> · <i class="bi bi-git"></i> {{ project.repo or "no repo" }}
+  {{ project.branch or "-" }}@<code>{{ project.head or "-" }}</code>{% if project.dirty %} <span class="badge text-bg-warning">dirty</span>{% endif %}
+</p>
+
+<div class="row g-4">
+  <div class="col-xl-6">
+    <h2 class="h5">Permalinks</h2>
+    <ul class="mb-4">
+      {% for label, b in [("Last build", project.last_build), ("Last successful build", project.last_success), ("Last failed build", project.last_failure)] %}
+      {% if b %}<li><a href="/jobs/{{ b.id }}">{{ label }} (#{{ b.id }})</a>, {{ b.finished|ago }} ago</li>{% endif %}
+      {% endfor %}
+      {% if not project.last_build %}<li class="text-body-secondary">No builds yet.</li>{% endif %}
+    </ul>
+
+    <h2 class="h5">Targets</h2>
+    {% if project.targets_error %}<div class="alert alert-danger py-2">{{ project.targets_error }}</div>{% endif %}
+    <div class="table-responsive mb-4"><table class="table table-sm border mb-0">
+      <thead><tr><th>Name</th><th>Kind</th><th>Builder</th><th>Bundle ID</th><th>Platform</th><th>Dir</th></tr></thead>
+      <tbody>
+      {% for t in project.targets %}
+        <tr><td class="fw-semibold">{{ t.name }}</td><td><span class="badge text-bg-light border">{{ t.kind }}</span></td><td>{{ t.builder }}</td>
+          <td>{% if t.bundle_id %}<code>{{ t.bundle_id }}</code>{% endif %}</td><td class="text-nowrap">{{ t.platform }}</td><td class="text-nowrap"><code>{{ t.dir }}</code></td></tr>
+      {% endfor %}
+      </tbody>
+    </table></div>
+
+    <h2 class="h5">Latest by command</h2>
+    <table class="table table-sm border">
+      <thead><tr><th>S</th><th>Command</th><th>Build</th><th>When</th><th>Duration</th></tr></thead>
+      <tbody>
+      {% for cmd, b in project.last|items %}
+        <tr><td>{{ ball(b.status) }}</td><td>{{ cmd }}</td><td><a href="/jobs/{{ b.id }}">#{{ b.id }}</a></td><td>{{ b.created|dt }}</td><td>{{ b.started|dur(b.finished) }}</td></tr>
+      {% else %}
+        <tr><td colspan="5" class="text-body-secondary">No builds yet.</td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="col-xl-6">
+    <div class="card" id="params">
+      <div class="card-header fw-bold"><i class="bi bi-sliders"></i> Build with Parameters</div>
+      <form class="card-body" data-queue-form>
+        <input type="hidden" name="project" value="{{ project.path }}">
+        <div class="mb-3"><label class="form-label fw-semibold">command</label>
+          <select class="form-select" name="command">{% for c in commands %}<option>{{ c }}</option>{% endfor %}</select>
+          <div class="form-text">idl subcommand to run in <code>{{ project.path }}</code>.</div></div>
+        <div class="mb-3"><label class="form-label fw-semibold">targets</label>
+          <select class="form-select" name="targets" multiple size="{{ [project.targets|length, 8]|min if project.targets else 2 }}">
+            {% for t in project.targets %}<option value="{{ t.name }}">{{ t.name }} ({{ t.kind }})</option>{% endfor %}
+          </select>
+          <div class="form-text">None selected = all targets.</div></div>
+        <div class="mb-3"><label class="form-label fw-semibold">configuration</label>
+          <select class="form-select" name="configuration"><option value="none">idl default</option><option>debug</option><option>release</option></select></div>
+        <div class="form-check mb-3"><input class="form-check-input" type="checkbox" name="strict" id="strict">
+          <label class="form-check-label" for="strict">strict <span class="text-body-secondary">(--strict for build/check)</span></label></div>
+        <button class="btn btn-primary"><i class="bi bi-play-fill"></i> Build</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="config" tabindex="-1">
+  <div class="modal-dialog modal-lg modal-dialog-scrollable"><div class="modal-content">
+    <div class="modal-header"><h5 class="modal-title">Configure: {{ project.path }}/idlproj.yml</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-body"><pre class="console mb-0">{{ config }}</pre></div>
+    <div class="modal-footer small text-body-secondary">Read-only: edit idlproj.yml in the repo; targets reload when it changes.</div>
+  </div></div>
+</div>
+{% endblock %}

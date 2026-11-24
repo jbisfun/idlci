@@ -1,0 +1,30 @@
+{% macro ball(status, size="") -%}
+<i class="bi bi-circle-fill ball ball-{{ status or 'none' }} {{ size }}" title="{{ status or 'not built' }}"></i>
+{%- endmacro %}
+
+{% macro weather(health) -%}
+{% if health is none -%}
+<i class="bi bi-dash text-body-tertiary" title="No builds yet"></i>
+{%- else -%}
+{% set icon = "sun" if health > 80 else "cloud-sun" if health > 60 else "cloud" if health > 40 else "cloud-rain" if health > 20 else "cloud-lightning-rain" %}
+<i class="bi bi-{{ icon }} weather w-{{ icon }}" title="Build stability: {{ health }}% of the recent builds passed"></i>
+{%- endif %}
+{%- endmacro %}
+
+{% macro task(icon, label, href="#", attrs="") -%}
+<li><a href="{{ href }}" {{ attrs|safe }}><i class="bi bi-{{ icon }}"></i>{{ label }}</a></li>
+{%- endmacro %}
+
+{% macro history(jobs, current=none) -%}
+<h1 class="d-flex">Build History{% if jobs %}<a class="ms-auto p-0 m-0 d-inline fw-normal text-lowercase" href="/jobs?project={{ jobs[0].project|urlencode }}">all</a>{% endif %}</h1>
+<ul>
+  {% for j in jobs %}
+  <li><a class="d-flex align-items-center gap-2{% if j.id == current %} active{% endif %}" href="/jobs/{{ j.id }}">
+    {{ ball(j.status) }} <span class="fw-semibold">#{{ j.id }}</span> <span class="text-nowrap">{{ j.command }}</span>
+    <span class="ms-auto text-nowrap small">{{ j.created|dts }}</span>
+  </a></li>
+  {% else %}
+  <li class="ci-muted">No builds yet.</li>
+  {% endfor %}
+</ul>
+{%- endmacro %}
