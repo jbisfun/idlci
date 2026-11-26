@@ -1,0 +1,75 @@
+{% extends "ci/base.html" %}
+{% import "ci/macros.html" as ci %}
+{% block tasks %}
+{% set job = page.job %}
+{{ ci.task("arrow-up-circle", "Back to Project", "/projects/" ~ job.project) }}
+{{ ci.task("clipboard-data", "Status", "#top") }}
+{{ ci.task("terminal", "Console Output", "#console-output") }}
+{{ ci.task("file-earmark-text", "View as plain text", "/jobs/" ~ job.id ~ "/console") }}
+{{ ci.task("arrow-repeat", "Rebuild", "#", 'data-post="/api/jobs/' ~ job.id ~ '/retry?by=web" data-go') }}
+{% if job.active %}
+{{ ci.task("x-circle-fill text-danger", "Abort", "#", 'data-post="/api/jobs/' ~ job.id ~ '/cancel"') }}
+{% endif %}
+{% if job.retry_of %}{{ ci.task("arrow-left-circle", "Rebuild of #" ~ job.retry_of, "/jobs/" ~ job.retry_of) }}{% endif %}
+{% endblock %}
+{% block sidepanels %}{{ ci.history(page.builds, page.history_href, page.job.id) }}{% endblock %}
+{% block content %}
+{% set job = page.job %}
+<h1 id="top" class="tool-heading">
+  <i class="bi bi-circle-fill ball ball-{{ job.status }} ball-lg" id="status-ball" title="{{ job.status }}"></i>
+  <span>Build #{{ job.id }} <span class="fw-normal text-body-secondary">({{ job.created_dt }})</span></span>
+  <span class="tool-status tool-status-{{ job.status }}" id="status-text">{{ job.status }}</span>
+  {% if job.active %}
+  <button class="btn btn-sm btn-outline-danger ms-auto" data-post="/api/jobs/{{ job.id }}/cancel" title="Abort"><i class="bi bi-x-lg"></i> Abort</button>
+  {% endif %}
+</h1>
+<p class="tool-meta">
+  {% if job.started %}Started {{ job.started_ago }} ago · Took {{ job.dur }}{% else %}Waiting in the queue for {{ job.created_ago }}{% endif %}
+  {% if job.exit_code is not none %} · exit code {{ job.exit_code }}{% endif %}
+</p>
+<ul class="list-unstyled mb-4">
+  <li class="mb-1"><i class="bi bi-person-fill text-body-secondary"></i> Started by <strong>{{ job.requested_by }}</strong>{% if job.requested_by == "watch" %} (git HEAD changed){% endif %}</li>
+  {% if job.subject %}<li class="mb-1"><i class="bi bi-stack text-body-secondary"></i> Checks <strong>{{ job.subject }}</strong> in its own work tree at
+    <span class="tool-chips">{% for line in job.checkout_lines %}<code>{{ line }}</code>{% endfor %}</span></li>{% endif %}
+  <li class="mb-1"><i class="bi bi-git text-body-secondary"></i> Revision: <code>{{ job.head or "-" }}</code>
+    <span class="text-body-secondary">{{ job.repo or "" }} ({{ job.branch or "detached" }})</span>{% if job.dirty %} <span class="badge text-bg-warning">uncommitted changes</span>{% endif %}</li>
+  <li class="mb-1"><i class="bi bi-folder2 text-body-secondary"></i> Project: <a href="/projects/{{ job.project }}">{{ job.project }}</a></li>
+  <li class="mb-1"><i class="bi bi-terminal text-body-secondary"></i> <code>idl {{ page.args }}</code>
+    {% if job.configuration != "none" %}<span class="badge text-bg-secondary">{{ job.configuration }}</span>{% endif %}
+    {% if job.strict %}<span class="badge text-bg-secondary">strict</span>{% endif %}
+    {% for t in job.targets %}<span class="badge text-bg-light border">{{ t }}</span>{% endfor %}</li>
+</ul>
+
+<div class="d-flex align-items-center mb-2" id="console-output">
+  <h2 class="h4 mb-0"><i class="bi bi-terminal"></i> Console Output</h2>
+  <div class="form-check form-switch ms-auto">
+    <input class="form-check-input" type="checkbox" id="follow"{% if job.active %} checked{% endif %}><label class="form-check-label" for="follow">Follow</label>
+  </div>
+</div>
+<pre class="console" id="console"></pre>
+{% endblock %}
+{% block page_scripts %}
+<script>
+const out = document.getElementById('console'), initial = "{{ page.job.status }}";
+const es = new EventSource('/api/jobs/{{ page.job.id }}/events');
+es.addEventListener('log', e => {
+  const text = JSON.parse(e.data).replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '');
+  for (const line of text.split(/(?<=\n)/)) {
+    const m = /^\s*(PASS|FAIL)\b/.exec(line);
+    if (!m) { out.append(line); continue; }
+    const s = document.createElement('span');
+    s.className = m[1] === 'PASS' ? 'text-success fw-bold' : 'text-danger fw-bold';
+    s.textContent = line;
+    out.append(s);
+  }
+  if (document.getElementById('follow').checked) window.scrollTo(0, document.body.scrollHeight);
+});
+es.addEventListener('status', e => {
+  document.getElementById('status-ball').className = `bi bi-circle-fill ball ball-${e.data} ball-lg`;
+  const text = document.getElementById('status-text');
+  text.className = `tool-status tool-status-${e.data}`;
+  text.textContent = e.data;
+});
+es.addEventListener('done', e => { es.close(); if (JSON.parse(e.data).status !== initial) location.reload(); });
+</script>
+{% endblock %}

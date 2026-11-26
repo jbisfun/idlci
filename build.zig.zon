@@ -1,0 +1,32 @@
+.{
+    .name = .idlci,
+    .version = "0.2.0",
+    .fingerprint = 0xdd3751a90a9a3087,
+    .minimum_zig_version = "0.17.1",
+    .dependencies = .{
+        // the job queue (idlci's SQLite schema)
+        .sqlite = .{
+            .url = "git+https://github.com/vrischmann/zig-sqlite#1eba1e490629897e71dc3a23aad6fe9a319e0c82",
+            .hash = "sqlite-3.48.0-F2R_azOoDgB4eu7BHE5c8WtBnKufFQnhD1xqD5TgTxg4",
+        },
+        // reads the workspace's pullfile.plist, as pull does
+        .xml = .{
+            .url = "git+https://github.com/nat3Github/zig-lib-xml#82233206c4f83ed190c1fd7fc976f3e2b26be4b7",
+            .hash = "xml-0.2.2-ZTbP34_NAgAvbDNF1BjVuSDNDdN8bGGrzSjsH4l20H-h",
+        },
+        // `idlci mcp`
+        .parley = .{
+            .url = "git+https://github.com/pedronaugusto/parley#3dffee3a0e074d6cfb5be647f5a4694c2fd9ad9d",
+            .hash = "parley-0.8.0-x3fwY1idCwCLQPMDQif0tjRyIbXpzYaMJ2l0mVuqHSUp",
+        },
+        // jbisfun/theme: the shared theme and discovery modules, checked out
+        // beside idlci in the pull workspace (~/jbisfun/theme)
+        .theme = .{ .path = "../theme" },
+    },
+    .paths = .{
+        "build.zig",
+        "build.zig.zon",
+        "src",
+        "README.md",
+    },
+}
